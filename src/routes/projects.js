@@ -715,4 +715,83 @@ router.patch(
 	},
 )
 
+/**
+ * @swagger
+ * /api/projects/{id}:
+ *   delete:
+ *     summary: Excluir projeto
+ *     description: Cliente dono pode excluir projeto (apenas se não tiver propostas)
+ *     tags: [Projetos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Projeto excluído com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Projeto excluído com sucesso"
+ *       400:
+ *         description: Projeto não pode ser excluído (tem propostas ou está em andamento)
+ *       403:
+ *         description: Apenas o cliente dono pode excluir o projeto
+ *       404:
+ *         description: Projeto não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.delete('/:id', protect, async (req, res) => {
+	try {
+		const project = await Project.findById(req.params.id)
+
+		if (!project) {
+			return res.status(404).json({
+				message: 'Projeto não encontrado',
+			})
+		}
+
+		// Verificar se é o cliente dono
+		if (project.client.toString() !== req.user._id.toString()) {
+			return res.status(403).json({
+				message: 'Apenas o cliente dono do projeto pode excluí-lo',
+			})
+		}
+
+		// Verificar se tem propostas
+		if (project.proposals.length > 0) {
+			return res.status(400).json({
+				message: 'Não é possível excluir projeto com propostas. Cancele o projeto primeiro.',
+			})
+		}
+
+		// Verificar se está em andamento
+		if (project.status === 'in_progress') {
+			return res.status(400).json({
+				message: 'Não é possível excluir projeto em andamento. Cancele o projeto primeiro.',
+			})
+		}
+
+		await Project.findByIdAndDelete(req.params.id)
+
+		res.json({
+			message: 'Projeto excluído com sucesso',
+		})
+	} catch (error) {
+		console.error('Erro ao excluir projeto:', error)
+		res.status(500).json({
+			message: 'Erro interno do servidor',
+		})
+	}
+})
+
 export default router

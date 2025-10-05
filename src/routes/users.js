@@ -281,4 +281,146 @@ router.get('/freelancers/:id', async (req, res) => {
 	}
 })
 
+/**
+ * @swagger
+ * /api/users/clients:
+ *   get:
+ *     summary: Buscar todos os clientes
+ *     description: Retorna uma lista paginada de clientes
+ *     tags: [Usuários]
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Buscar por nome ou empresa
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: Lista de clientes
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 clients:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       avatar:
+ *                         type: string
+ *                       company:
+ *                         type: string
+ *                       website:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 totalPages:
+ *                   type: integer
+ *                 currentPage:
+ *                   type: integer
+ *                 total:
+ *                   type: integer
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/clients', async (req, res) => {
+	try {
+		const { search, page = 1, limit = 10 } = req.query
+
+		let query = { userType: 'client' }
+
+		if (search) {
+			query.$or = [
+				{ name: { $regex: search, $options: 'i' } },
+				{ company: { $regex: search, $options: 'i' } },
+			]
+		}
+
+		const clients = await User.find(query)
+			.select('name email avatar company website createdAt')
+			.limit(limit * 1)
+			.skip((page - 1) * limit)
+			.sort({ createdAt: -1 })
+
+		const total = await User.countDocuments(query)
+
+		res.json({
+			clients,
+			totalPages: Math.ceil(total / limit),
+			currentPage: parseInt(page),
+			total,
+		})
+	} catch (error) {
+		console.error('Erro ao buscar clientes:', error)
+		res.status(500).json({
+			message: 'Erro interno do servidor',
+		})
+	}
+})
+
+/**
+ * @swagger
+ * /api/users/clients/{id}:
+ *   get:
+ *     summary: Buscar cliente por ID
+ *     description: Retorna os detalhes completos de um cliente específico
+ *     tags: [Usuários]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Dados do cliente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       404:
+ *         description: Cliente não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/clients/:id', async (req, res) => {
+	try {
+		const client = await User.findOne({
+			_id: req.params.id,
+			userType: 'client',
+		}).select('-password')
+
+		if (!client) {
+			return res.status(404).json({
+				message: 'Cliente não encontrado',
+			})
+		}
+
+		res.json(client)
+	} catch (error) {
+		console.error('Erro ao buscar cliente:', error)
+		res.status(500).json({
+			message: 'Erro interno do servidor',
+		})
+	}
+})
+
 export default router

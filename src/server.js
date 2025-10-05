@@ -1,12 +1,21 @@
-// server.js
+// server.js - Atualize as importações
 import express from 'express'
 import mongoose from 'mongoose'
 import cors from 'cors'
 import dotenv from 'dotenv'
+
+// Rotas existentes
 import authRoutes from './routes/auth.js'
 import userRoutes from './routes/users.js'
 import projectRoutes from './routes/projects.js'
-import swaggerDocs from './config/swagger.js' // 👈 Nova importação
+
+// 🔥 NOVAS ROTAS
+import proposalRoutes from './routes/proposals.js'
+import reviewRoutes from './routes/reviews.js'
+import dashboardRoutes from './routes/dashboard.js'
+import skillRoutes from './routes/skills.js'
+
+import swaggerDocs from './config/swagger.js'
 
 dotenv.config()
 
@@ -31,18 +40,20 @@ app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/projects', projectRoutes)
 
+// 🔥 NOVAS ROTAS
+app.use('/api/proposals', proposalRoutes)
+app.use('/api/reviews', reviewRoutes)
+app.use('/api/dashboard', dashboardRoutes)
+app.use('/api/skills', skillRoutes)
+
 // Rota de health check
 app.get('/api/health', (req, res) => {
 	res.status(200).json({
 		message: '🚀 Freelancer Platform API está rodando!',
 		timestamp: new Date().toISOString(),
+		version: '2.0.0',
 	})
 })
-
-// server.js - Adicione isso antes de swaggerDocs(app)
-console.log('📁 Carregando documentação Swagger...')
-console.log('📁 Diretório base:', process.cwd())
-console.log('📁 Arquivos de rotas:', './routes/*.js')
 
 // ✅ Inicializar documentação Swagger
 swaggerDocs(app)
@@ -63,5 +74,6 @@ const PORT = process.env.PORT || 5000
 app.listen(PORT, () => {
 	console.log(`🎯 Servidor rodando na porta ${PORT}`)
 	console.log(`📱 Ambiente: ${process.env.NODE_ENV}`)
-	console.log(`📚 Docs: http://localhost:${PORT}/api-docs`) // 👈 Log da documentação
+	console.log(`📚 Docs: http://localhost:${PORT}/api-docs`)
+	console.log(`🚀 Health: http://localhost:${PORT}/api/health`)
 })
