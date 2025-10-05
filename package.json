@@ -4,7 +4,11 @@
 	"type": "module",
 	"scripts": {
 		"dev": "nodemon src/server.js",
-		"start": "node src/server.js"
+		"start": "node src/server.js",
+		"seed": "node src/scripts/seedDatabase.js",
+		"seed:reset": "node src/scripts/seedDatabase.js --reset",
+		"seed:users": "node src/scripts/seedUsers.js",
+		"seed:projects": "node src/scripts/seedProjects.js"
 	},
 	"dependencies": {
 		"bcryptjs": "^2.4.3",

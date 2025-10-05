@@ -8,12 +8,11 @@ import dotenv from 'dotenv'
 import authRoutes from './routes/auth.js'
 import userRoutes from './routes/users.js'
 import projectRoutes from './routes/projects.js'
-
-// 🔥 NOVAS ROTAS
 import proposalRoutes from './routes/proposals.js'
 import reviewRoutes from './routes/reviews.js'
 import dashboardRoutes from './routes/dashboard.js'
 import skillRoutes from './routes/skills.js'
+import paymentRoutes from './routes/payments.js'
 
 import swaggerDocs from './config/swagger.js'
 
@@ -39,12 +38,11 @@ mongoose
 app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/projects', projectRoutes)
-
-// 🔥 NOVAS ROTAS
 app.use('/api/proposals', proposalRoutes)
 app.use('/api/reviews', reviewRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/skills', skillRoutes)
+app.use('/api/payments', paymentRoutes)
 
 // Rota de health check
 app.get('/api/health', (req, res) => {

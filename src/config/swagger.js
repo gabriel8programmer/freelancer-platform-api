@@ -99,6 +99,42 @@ const options = {
 						token: { type: 'string' },
 					},
 				},
+				Payment: {
+					type: 'object',
+					properties: {
+						_id: { type: 'string' },
+						project: { $ref: '#/components/schemas/Project' },
+						client: { $ref: '#/components/schemas/User' },
+						freelancer: { $ref: '#/components/schemas/User' },
+						amount: { type: 'number' },
+						currency: { type: 'string', default: 'BRL' },
+						status: {
+							type: 'string',
+							enum: ['pending', 'processing', 'completed', 'failed', 'refunded', 'cancelled'],
+						},
+						paymentMethod: {
+							type: 'string',
+							enum: ['credit_card', 'debit_card', 'pix', 'bank_transfer', 'paypal', 'crypto'],
+						},
+						description: { type: 'string' },
+						dueDate: { type: 'string', format: 'date-time' },
+						paidAt: { type: 'string', format: 'date-time' },
+						installment: {
+							type: 'object',
+							properties: {
+								current: { type: 'number' },
+								total: { type: 'number' },
+							},
+						},
+						transactionId: { type: 'string' },
+						paymentUrl: { type: 'string' },
+						pixCode: { type: 'string' },
+						refundReason: { type: 'string' },
+						refundedAt: { type: 'string', format: 'date-time' },
+						createdAt: { type: 'string', format: 'date-time' },
+						updatedAt: { type: 'string', format: 'date-time' },
+					},
+				},
 				Error: {
 					type: 'object',
 					properties: {
