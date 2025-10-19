@@ -2,7 +2,10 @@
 import express from 'express'
 import { body, validationResult } from 'express-validator'
 import User from '../models/User.js'
-import { generateToken } from '../middleware/auth.js'
+import { authenticateToken, generateToken } from '../middleware/auth.js'
+import { getMe, login, logout, refreshToken } from '../controllers/authController.js'
+
+import jwt from 'jsonwebtoken'
 
 const router = express.Router()
 
@@ -92,17 +95,29 @@ router.post(
 				loginType: 'email',
 			})
 
-			if (user) {
-				res.status(201).json({
-					_id: user._id,
+			// Gera tokens
+			const { accessToken, refreshToken } = generateTokens(user._id)
+
+			// Configura cookie do refresh token
+			res.cookie('refreshToken', refreshToken, {
+				httpOnly: true,
+				secure: process.env.NODE_ENV === 'production',
+				sameSite: 'strict',
+				maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
+			})
+
+			res.status(201).json({
+				message: 'Usuário criado com sucesso',
+				accessToken,
+				user: {
+					id: user._id,
 					name: user.name,
 					email: user.email,
-					avatar: user.avatar,
 					userType: user.userType,
+					avatar: user.avatar,
 					profileComplete: user.profileComplete,
-					token: generateToken(user._id),
-				})
-			}
+				},
+			})
 		} catch (error) {
 			console.error('Erro no registro:', error)
 			res.status(500).json({
@@ -157,43 +172,72 @@ router.post(
 		body('email').isEmail().withMessage('Email inválido'),
 		body('password').notEmpty().withMessage('Senha é obrigatória'),
 	],
-	async (req, res) => {
-		try {
-			const errors = validationResult(req)
-			if (!errors.isEmpty()) {
-				return res.status(400).json({
-					message: 'Dados inválidos',
-					errors: errors.array(),
-				})
-			}
-
-			const { email, password } = req.body
-
-			const user = await User.findOne({ email }).select('+password')
-
-			if (user && (await user.correctPassword(password, user.password))) {
-				res.json({
-					_id: user._id,
-					name: user.name,
-					email: user.email,
-					avatar: user.avatar,
-					userType: user.userType,
-					profileComplete: user.profileComplete,
-					token: generateToken(user._id),
-				})
-			} else {
-				res.status(401).json({
-					message: 'Email ou senha inválidos',
-				})
-			}
-		} catch (error) {
-			console.error('Erro no login:', error)
-			res.status(500).json({
-				message: 'Erro interno do servidor',
-			})
-		}
-	},
+	login, // ← Usando o controller atualizado
 )
+
+/**
+ * @swagger
+ * /api/auth/refresh-token:
+ *   post:
+ *     summary: Refresh access token
+ *     description: Gera um novo access token usando o refresh token
+ *     tags: [Autenticação]
+ *     responses:
+ *       200:
+ *         description: Novo access token gerado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 accessToken:
+ *                   type: string
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     userType:
+ *                       type: string
+ *                     avatar:
+ *                       type: string
+ *                     profileComplete:
+ *                       type: boolean
+ *       401:
+ *         description: Refresh token não fornecido ou inválido
+ *       403:
+ *         description: Refresh token expirado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.post('/refresh-token', refreshToken)
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Logout do usuário
+ *     description: Remove o refresh token e faz logout
+ *     tags: [Autenticação]
+ *     responses:
+ *       200:
+ *         description: Logout realizado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Logout realizado com sucesso"
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.post('/logout', logout)
 
 /**
  * @swagger
@@ -261,14 +305,28 @@ router.post(
 				})
 			}
 
+			// Gera tokens para login com Google
+			const { accessToken, refreshToken } = generateTokens(user._id)
+
+			// Configura cookie do refresh token
+			res.cookie('refreshToken', refreshToken, {
+				httpOnly: true,
+				secure: process.env.NODE_ENV === 'production',
+				sameSite: 'strict',
+				maxAge: 7 * 24 * 60 * 60 * 1000,
+			})
+
 			res.json({
-				_id: user._id,
-				name: user.name,
-				email: user.email,
-				avatar: user.avatar,
-				userType: user.userType,
-				profileComplete: user.profileComplete,
-				token: generateToken(user._id),
+				message: 'Login com Google realizado com sucesso',
+				accessToken,
+				user: {
+					id: user._id,
+					name: user.name,
+					email: user.email,
+					userType: user.userType,
+					avatar: user.avatar,
+					profileComplete: user.profileComplete,
+				},
 			})
 		} catch (error) {
 			console.error('Erro no login com Google:', error)
@@ -300,16 +358,19 @@ router.post(
  *       500:
  *         description: Erro interno do servidor
  */
-router.get('/me', async (req, res) => {
-	try {
-		// Esta rota precisa do middleware de proteção
-		res.json(req.user)
-	} catch (error) {
-		console.error('Erro ao buscar usuário:', error)
-		res.status(500).json({
-			message: 'Erro interno do servidor',
-		})
-	}
-})
+router.get('/me', authenticateToken, getMe) // ← Agora protegida
+
+// Função auxiliar para gerar tokens (reutilizada)
+const generateTokens = (userId) => {
+	const accessToken = jwt.sign({ userId }, process.env.ACCESS_TOKEN_SECRET, {
+		expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
+	})
+
+	const refreshToken = jwt.sign({ userId }, process.env.REFRESH_TOKEN_SECRET, {
+		expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
+	})
+
+	return { accessToken, refreshToken }
+}
 
 export default router
